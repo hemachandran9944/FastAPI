@@ -1,33 +1,33 @@
 from fastapi import FastAPI, Depends
+from sqlalchemy.orm import Session
+from database import SessionLocal, engine, Base
+import models
 from schemas import Todo as TodoSchema
-from sqlalchemy.orm import session
-from database import SessionLocal
-from models import Todo
 
-
+# Table create 
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-#Dependency for DB session 
-
 def get_db():
-    db = sessionLocal()
+    db = SessionLocal()
     try:
         yield db 
     finally:
-        db.close()    
-
-# Post - Create  TODO
+        db.close()
 
 @app.post("/todos", response_model=TodoSchema)
-def create(todo : TodoSchema, db: Session = Depends(get_db)):
-    db_todo = Todo(**todo.dict())
+def create_todo(todo: TodoSchema, db: Session = Depends(get_db)):
+    db_todo = models.Todo(**todo.dict(exclude={"id"}))
     db.add(db_todo)
     db.commit()
-    db.refresh()
+    db.refresh(db_todo)
     return db_todo
 
-    
+@app.get("/todos", response_model=list[TodoSchema])
+def get_todos(db: Session = Depends(get_db)):
+    return db.query(models.Todo).all()
 
-
-
+@app.get("/todos/{todo_id}", response_model=TodoSchema)
+def get_todo(todo_id: int, db: Session = Depends(get_db)):
+    return db.query(models.Todo).filter(models.Todo.id == todo_id).first()
